@@ -2,18 +2,48 @@ import streamlit as st
 import pandas as pd
 import requests
 
+import time
+import logging
+
+
+CONTACT_EMAIL = "william.letton@crystallise.com"
+USER_AGENT = "reverse-boolean-search/1.0"
+PMC_ID_CONVERTER_URL = "https://www.ncbi.nlm.nih.gov/pmc/utils/idconv/v1.0/"
+DELAY_BETWEEN_CALLS = 0.34
+MAX_RETRIES = 3
+
+session = requests.Session()
+session.headers.update({"User-Agent": USER_AGENT})
+
+
 
 def fetch_pubmed_id(doi: str):
     """Return the PubMed ID for a DOI if it exists."""
-    url = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi"
-    params = {"db": "pubmed", "term": f"{doi}[DOI]", "retmode": "json"}
-    try:
-        response = requests.get(url, params=params, timeout=5)
-        response.raise_for_status()
-        ids = response.json().get("esearchresult", {}).get("idlist", [])
-        return ids[0] if ids else None
-    except Exception:
-        return None
+
+    params = {
+        "ids": doi,
+        "format": "json",
+        "tool": "reverse_boolean_search",
+        "email": CONTACT_EMAIL,
+    }
+    for attempt in range(MAX_RETRIES):
+        try:
+            response = session.get(PMC_ID_CONVERTER_URL, params=params, timeout=10)
+            if response.status_code in (429, 503):
+                time.sleep(DELAY_BETWEEN_CALLS)
+                continue
+            response.raise_for_status()
+            records = response.json().get("records", [])
+            if records and "pmid" in records[0]:
+                return records[0]["pmid"]
+            return None
+        except Exception:
+            logging.exception("PubMed lookup failed")
+            if attempt == MAX_RETRIES - 1:
+                return None
+        time.sleep(DELAY_BETWEEN_CALLS)
+    return None
+
 
 st.title("🎈 A Will App")
 st.write(
