@@ -9,7 +9,7 @@ import logging
 CONTACT_EMAIL = "william.letton@crystallise.com"
 USER_AGENT = "reverse-boolean-search/1.0"
 PMC_ID_CONVERTER_URL = "https://www.ncbi.nlm.nih.gov/pmc/utils/idconv/v1.0/"
-DELAY_BETWEEN_CALLS = 0.34
+DELAY_BETWEEN_CALLS = 3
 MAX_RETRIES = 3
 
 session = requests.Session()
