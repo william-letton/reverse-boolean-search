@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import requests
+
 import time
 import logging
 
@@ -15,8 +16,10 @@ session = requests.Session()
 session.headers.update({"User-Agent": USER_AGENT})
 
 
+
 def fetch_pubmed_id(doi: str):
     """Return the PubMed ID for a DOI if it exists."""
+
     params = {
         "ids": doi,
         "format": "json",
@@ -40,6 +43,7 @@ def fetch_pubmed_id(doi: str):
                 return None
         time.sleep(DELAY_BETWEEN_CALLS)
     return None
+
 
 st.title("🎈 A Will App")
 st.write(
