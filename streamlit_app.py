@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import requests
-
 import time
 import logging
 
@@ -9,40 +8,72 @@ import logging
 CONTACT_EMAIL = "william.letton@crystallise.com"
 USER_AGENT = "reverse-boolean-search/1.0"
 PMC_ID_CONVERTER_URL = "https://www.ncbi.nlm.nih.gov/pmc/utils/idconv/v1.0/"
-DELAY_BETWEEN_CALLS = 3
+ESEARCH_URL = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi"
+DELAY_BETWEEN_CALLS = 0.34
+
 MAX_RETRIES = 3
 
 session = requests.Session()
 session.headers.update({"User-Agent": USER_AGENT})
 
-
-
 def fetch_pubmed_id(doi: str):
     """Return the PubMed ID for a DOI if it exists."""
 
-    params = {
-        "ids": doi,
-        "format": "json",
-        "tool": "reverse_boolean_search",
-        "email": CONTACT_EMAIL,
-    }
-    for attempt in range(MAX_RETRIES):
-        try:
-            response = session.get(PMC_ID_CONVERTER_URL, params=params, timeout=10)
-            if response.status_code in (429, 503):
-                time.sleep(DELAY_BETWEEN_CALLS)
-                continue
-            response.raise_for_status()
-            records = response.json().get("records", [])
-            if records and "pmid" in records[0]:
-                return records[0]["pmid"]
-            return None
-        except Exception:
-            logging.exception("PubMed lookup failed")
-            if attempt == MAX_RETRIES - 1:
+    def call_pmc_converter() -> str | None:
+        params = {
+            "ids": doi,
+            "format": "json",
+            "tool": "reverse_boolean_search",
+            "email": CONTACT_EMAIL,
+        }
+        for attempt in range(MAX_RETRIES):
+            try:
+                response = session.get(
+                    PMC_ID_CONVERTER_URL, params=params, timeout=10
+                )
+                if response.status_code in (429, 503):
+                    time.sleep(DELAY_BETWEEN_CALLS)
+                    continue
+                response.raise_for_status()
+                records = response.json().get("records", [])
+                if records and "pmid" in records[0]:
+                    return records[0]["pmid"]
                 return None
-        time.sleep(DELAY_BETWEEN_CALLS)
-    return None
+            except Exception:
+                logging.exception("PubMed lookup via PMC converter failed")
+                if attempt == MAX_RETRIES - 1:
+                    return None
+            time.sleep(DELAY_BETWEEN_CALLS)
+        return None
+
+    def call_esearch() -> str | None:
+        params = {
+            "db": "pubmed",
+            "term": f"{doi}[DOI]",
+            "retmode": "json",
+            "tool": "reverse_boolean_search",
+            "email": CONTACT_EMAIL,
+        }
+        for attempt in range(MAX_RETRIES):
+            try:
+                response = session.get(ESEARCH_URL, params=params, timeout=10)
+                if response.status_code in (429, 503):
+                    time.sleep(DELAY_BETWEEN_CALLS)
+                    continue
+                response.raise_for_status()
+                ids = response.json().get("esearchresult", {}).get("idlist", [])
+                return ids[0] if ids else None
+            except Exception:
+                logging.exception("PubMed esearch lookup failed")
+                if attempt == MAX_RETRIES - 1:
+                    return None
+            time.sleep(DELAY_BETWEEN_CALLS)
+        return None
+
+    pmid = call_pmc_converter()
+    if pmid:
+        return pmid
+    return call_esearch()
 
 
 st.title("🎈 A Will App")
@@ -66,23 +97,8 @@ if uploaded_file is not None:
                 result_df = df.copy()
                 in_pubmed = []
                 pmids = []
-
-                log_placeholder = st.empty()
-                log_lines = []
-
-                for _, row in result_df.iterrows():
-                    title = row.get("Title") or row.get("title", "")
-                    doi = row.get("DOI") or row.get("doi", "")
-
-                    log_lines.append(f"Checking '{title}' ({doi})...")
-                    log_placeholder.markdown("\n".join(log_lines))
-
+                for doi in result_df["DOI"].fillna(""):
                     pmid = fetch_pubmed_id(doi) if doi else None
-
-                    status = f"found PMID {pmid}" if pmid else "PMID not found"
-                    log_lines[-1] = f"{title} ({doi}): {status}"
-                    log_placeholder.markdown("\n".join(log_lines))
-
                     in_pubmed.append(pmid is not None)
                     pmids.append(pmid)
 
