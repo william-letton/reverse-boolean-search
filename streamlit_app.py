@@ -66,10 +66,26 @@ if uploaded_file is not None:
                 result_df = df.copy()
                 in_pubmed = []
                 pmids = []
-                for doi in result_df["DOI"].fillna(""):
+
+                log_placeholder = st.empty()
+                log_lines = []
+
+                for _, row in result_df.iterrows():
+                    title = row.get("Title") or row.get("title", "")
+                    doi = row.get("DOI") or row.get("doi", "")
+
+                    log_lines.append(f"Checking '{title}' ({doi})...")
+                    log_placeholder.markdown("\n".join(log_lines))
+
                     pmid = fetch_pubmed_id(doi) if doi else None
+
+                    status = f"found PMID {pmid}" if pmid else "PMID not found"
+                    log_lines[-1] = f"{title} ({doi}): {status}"
+                    log_placeholder.markdown("\n".join(log_lines))
+
                     in_pubmed.append(pmid is not None)
                     pmids.append(pmid)
+
                 result_df["in_pubmed"] = in_pubmed
                 result_df["PMID"] = pmids
                 st.dataframe(result_df, use_container_width=True, height=400)
