@@ -10,11 +10,11 @@ USER_AGENT = "reverse-boolean-search/1.0"
 PMC_ID_CONVERTER_URL = "https://www.ncbi.nlm.nih.gov/pmc/utils/idconv/v1.0/"
 ESEARCH_URL = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi"
 DELAY_BETWEEN_CALLS = 0.34
+
 MAX_RETRIES = 3
 
 session = requests.Session()
 session.headers.update({"User-Agent": USER_AGENT})
-
 
 def fetch_pubmed_id(doi: str):
     """Return the PubMed ID for a DOI if it exists."""
@@ -75,6 +75,7 @@ def fetch_pubmed_id(doi: str):
         return pmid
     return call_esearch()
 
+
 st.title("🎈 A Will App")
 st.write(
     "Let's start building! For help and inspiration, head over to [docs.streamlit.io](https://docs.streamlit.io/)."
@@ -100,6 +101,7 @@ if uploaded_file is not None:
                     pmid = fetch_pubmed_id(doi) if doi else None
                     in_pubmed.append(pmid is not None)
                     pmids.append(pmid)
+
                 result_df["in_pubmed"] = in_pubmed
                 result_df["PMID"] = pmids
                 st.dataframe(result_df, use_container_width=True, height=400)
